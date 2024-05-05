@@ -1,0 +1,172 @@
+---
+title: "practica_final"
+format: html
+editor: visual
+---
+
+Vamos a utilizar el dataset de semillas que se encuentra aquí: https://archive.ics.uci.edu/ml/datasets/seeds#
+
+Primero vamos a descargarnos el dataset con el siguiente comando:
+
+```{r}
+library(tidyverse)
+df_seeds <- read.table('https://archive.ics.uci.edu/ml/machine-learning-databases/00236/seeds_dataset.txt', col.names =c('area','perimetro','compacto','longitud','anchura','coeficient.asimetria','longitud.ranura','tipo'), stringsAsFactors = TRUE)
+```
+
+#### PREGUNTA 1
+
+¿Cuantas filas y cuantas columnas tiene el dataframe df_seeds?
+
+**Respuesta**:
+
+```{r}
+paste("El dataframe df_seeds tiene", nrow(df_seeds), "filas y", ncol(df_seeds), "columnas.")
+```
+
+#### PREGUNTA 2
+
+Vamos a convertir en factor la columna tipo. Vamos a reemplazar los números por su correspondiente etiqueta (label). La correspondencia entre el código y el tipo es:
+
+-   1 - Kama
+-   2 - Rosa
+-   3 - Canadian
+
+Convierte en factor la columna tipo, respetando las etiquetas:
+
+**Respuesta**:
+
+```{r}
+etiquetas <- c("Kama", "Rosa", "Canadian")
+
+df_seeds$tipo <- factor(df_seeds$tipo, levels = c("1", "2", "3"), labels = etiquetas)
+
+valores <- unique(df_seeds$tipo)
+paste("Los valores únicos de la columna tipo son: ", paste(valores, collapse = ", "))
+
+```
+
+#### PREGUNTA 3
+
+¿Cual es la media del area de cada uno de los tipos?
+
+**Respuesta**
+
+```{r}
+#declaro tres variables para guardar la media de cada tipo. Además la redondeo para que no salgan tants decimales.
+media_area_kama <- round(mean(df_seeds$area[df_seeds$tipo == "Kama"]), 2)
+media_area_rosa <- round(mean(df_seeds$area[df_seeds$tipo == "Rosa"]), 2)
+media_area_canadian <- round(mean(df_seeds$area[df_seeds$tipo == "Canadian"]),2 )
+
+print(paste("Media del área para Kama:", media_area_kama))
+print(paste("Media del área para Rosa:", media_area_rosa))
+print(paste("Media del área para Canadian:", media_area_canadian))
+
+
+```
+
+#### PREGUNTA 4
+
+¿Como se llama el siguiente tipo de gráfico?. ¿Qué representa la línea del centro de la caja?
+
+```{r}
+ggplot(df_seeds, aes(x=tipo, y=area)) + geom_boxplot()
+```
+
+**Respuesta**: ''Este tipo de gráfico es de tipo boxplot, donde las líneas del centro representan la mediana de los datos."
+
+#### PREGUNTA 5
+
+¿Como pintarías un diagrama de puntos (o scatterplot) con ggplot con las siguientes características? - En el eje X la variable compacto - En el eje Y la variable area - Cada tipo de semilla debería tener un color diferente
+
+**Respuesta**:
+
+```{r}
+diagrama_scatterplot <- ggplot(df_seeds, aes(x = compacto, y = area, color = tipo)) +
+               geom_point()
+print(diagrama_scatterplot)
+```
+
+#### PREGUNTA 6
+
+¿Qué hace la siguiente línea?:
+
+```{r}
+df_seeds |> mutate(is_kama = tipo=='Kama') -> df_seeds
+```
+
+**Respuesta**: Toma le dataframe(df_seeds) y crea una nueva columa llamada is_kama. El el caso que el valor de la columna "tipo" sea igual a "Kama", se va asignar el valor TRUE en la columna is_kama que acabamos de crear. En caso contrario, si el valor de la columa "tipo" es distinto de "Kama", el valor que se asignará en is_kama será FALSE.
+
+#### PREGUNTA 7
+
+Vamos a dividir el conjunto de datos en test y training porque vamos a entrenar un modelo que me permita diferenciar si una semilla es de tipo Kama o no. ¿Por qué es aconsejable dividir el dataset en los grupos de train y test?
+
+```{r}
+set.seed(123)
+idx <- sample(1:nrow(df_seeds), 0.7*nrow(df_seeds))
+df_seeds_train <- df_seeds[idx,]
+df_seeds_test <- df_seeds[-idx,]
+```
+
+**Respuesta**: Dividir los datos en conjuntos de entrenamiento y prueba nos permite comprobar si nuestro modelo funciona bien con datos que no se hn visto previamente.También nos permite ajustar el modelo de manera que no se adapte demasiado a los datos de entrenamiento. En resumen, dividir el conjunto de datos en grupos de entrenamiento y prueba nos permite evaluar, comparar y mejorar nuestros modelos de manera más efectiva.
+
+#### PREGUNTA 8
+
+Vamos a crear un modelo para realizar una clasificación binaria, donde le pasaremos como entrada las columnas: area, perimetro, compacto, longitud, coeficient.asimetria y longitud.ranura
+
+¿Qué tipo de algoritmo o modelo debería usar?
+
+**Respuesta**: La regresión logística es una buena opción porque es simple, interpretable y proporciona predicciones de probabilidad, lo que la hace adecuada para problemas de clasificación binaria con características numéricas.
+
+#### PREGUNTA 9
+
+Crea un modelo que me permita clasificar si una semilla es de tipo Kama o no con las siguientes columnas: area, perimetro, compacto, longitud, coeficient.asimetria, longitud.ranura
+
+**Respuesta**:
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+df_seeds <- mutate(df_seeds, tipo.n = ifelse(tipo == "Kama", 1, 0))
+
+modelo_logistico <- glm(tipo.n ~ area + perimetro + compacto + longitud + coeficient.asimetria + longitud.ranura, data = df_seeds, family = binomial)
+
+
+summary(modelo_logistico)
+```
+
+#### PREGUNTA 10
+
+Si usamos un umbral de 0 en la salida del modelo (lo que equivale a probabilidad de 0.5 cuando usamos el predict con type='response') ¿Cuales son los valores de precisión y exhausitividad?
+
+**Respuesta**.
+
+```{r}
+
+probabilidades_predichas <- predict(modelo_logistico, type = "response")
+
+etiquetas_predichas <- ifelse(probabilidades_predichas >= 0.5, 1, 0)
+
+matriz <- table(df_seeds$tipo.n, etiquetas_predichas)
+
+precision <- matriz[2, 2] / sum(matriz[, 2])
+exhaustividad <- matriz[2, 2] / sum(matriz[2, ])
+
+
+paste("Los valores de precisión son:", precision)
+paste("Los valores de exhaustividad (Recall) son:", exhaustividad)
+
+
+```
+
+#### PREGUNTA 11
+
+¿Qué están haciendo las siguientes líneas?
+
+```{r}
+set.seed(123)
+cl<-df_seeds |> select(area,perimetro,compacto,longitud,anchura,coeficient.asimetria,longitud.ranura) |> kmeans(3)
+table(real=df_seeds$tipo,cluster=cl$cluster)
+```
+
+**Respuesta**: Establece una semilla para la generación de números aleatorios. Después selecciona las columas relevantes y aplica el algoritmo k-means con 3 clusters (lo guarda en la variable 'cl'). Finalmente, crea una tabla que muestra la frecuencia de las combinaciones entre los valores reales de la variable 'tipo y los clústeres asignados por k-means.
